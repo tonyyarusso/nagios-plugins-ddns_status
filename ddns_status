@@ -1,0 +1,152 @@
+#!/bin/sh
+# ======================================================================================================================
+# Icinga/Nagios dynamic DNS check
+#
+# Copyright:        2013, Tony Yarusso
+# Author:           Tony Yarusso <tonyyarusso@gmail.com>
+# License:          BSD <http://www.opensource.org/licenses/bsd-license.php>
+# Homepage:         http://tonyyarusso.org/
+# Description:      Checks for whether dynamic DNS entries are up to date.
+#                     When a home Internet connection (such as DSL) changes IP address, a dynamic DNS client on the
+#                     modem will notice the change in a periodic check and update a DNS record accordingly.  However,
+#                     this does not happen instantaneously, and DNS changes take time to propogate.  This plugin checks
+#                     whether a remote DNS server's entry matches the current IP address of the connection.
+#
+# Usage: ./ddns_status -n <FQDN> -s <server>
+#        e.g. ./ddns_status -n yarusso.dyndns.org -s 8.8.8.8
+#
+# ----------------------------------------------------------------------------------------------------------------------
+#
+# Full license text:
+#
+# Copyright (c) 2013, Tony Yarusso
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
+# following conditions are met:
+#
+#    * Redistributions of source code must retain the above copyright notice, this list of conditions and the following
+#      disclaimer.
+#    * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the
+#      following disclaimer in the documentation and/or other materials provided with the distribution.
+#    * Neither the name of Nagios nor the names of its contributors may be used to endorse or promote products derived
+#      from this software without specific prior written permission.
+
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+# INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# ======================================================================================================================
+
+VERSION="0.1"
+
+REMOTEDNS="8.8.8.8"
+IPURL="http://myip.dnsomatic.com/"
+SEVERITY=2
+
+usage() {
+        echo "Check plugin for dynamic DNS record update status"
+        echo "Copyright:  2013, Tony Yarusso"
+        echo "Author:     Tony Yarusso <tonyyarusso@gmail.com>"
+        echo "License:    BSD <http://www.opensource.org/licenses/bsd-license.php>"
+        echo ""
+        echo "Options:"
+        echo "    -h | --help"
+        echo "           Display this help text"
+        echo "    -v | --version"
+        echo "           Display the version of this script"
+	echo "    -n | --hostname"
+	echo "           The FQDN with your DDNS provider to check against"
+	echo "    -s | --server"
+	echo "           The remote DNS server to use [Default=8.8.8.8 (Google)]"
+	echo "    -u | --url"
+	echo "           URL that returns the IP address of the requestor [Default=http://myip.dnsomatic.com/]"
+        echo "    -w | --warning"
+        echo "           Only generate a warning state on address mismatch"
+        echo "    -c | --critical"
+        echo "           Generate a critical state on address mismatch [Default]"
+        echo ""
+}
+
+# Parse parameters
+while [ $# -gt 0 ]; do
+        case "$1" in
+                -h | --help)
+                        usage
+                        exit 0
+                        ;;
+                -v | --version)
+                        echo "Script version $VERSION"
+                        exit 0
+                        ;;
+		-n | --hostname)
+			shift
+			if [ -n "$1" ]; then
+				HOSTNAME="$1"
+			else
+				echo "Hostname option requires an argument.\n"
+				usage
+				exit 3
+			fi
+			;;
+		-s | --server)
+			shift
+			if [ -n "$1" ]; then
+				REMOTEDNS="$1"
+			else
+				echo "Server option requires an argument.\n"
+				usage
+				exit 3
+			fi
+			;;
+		-u | --url)
+			shift
+			if [ -n "$1" ]; then
+				IPURL="$1"
+			else
+				echo "URL option requires an argument.\n"
+				usage
+				exit 3
+			fi
+			;;
+                -w | --warning)
+                        SEVERITY=1
+                        ;;
+                -c | --critical)
+                        SEVERITY=2
+                        ;;
+                *)
+			echo "Unknown argument: $1"
+                        usage
+                        exit 3
+                        ;;
+        esac
+shift
+done
+
+if [ -z "$HOSTNAME" ]; then
+	echo "Hostname option (-n) is required.\n"
+	usage
+	exit 3
+fi
+
+CURRENT=$(/usr/bin/wget -q -O - "$IPURL")
+STORED=$(/usr/bin/dig +short @"$REMOTEDNS" "$HOSTNAME")
+
+if [ "$CURRENT" = "$STORED" ]; then
+	echo "DDNS OK:  Addresses match as $CURRENT"
+	exit 0
+else
+	if [ "$SEVERITY" -eq 1 ]; then
+		echo "DDNS Warning: DNS response of $STORED does not match current address of $CURRENT"
+	elif [ "$SEVERITY" -eq 2 ]; then
+		echo "DDNS Critical: DNS response of $STORED does not match current address of $CURRENT"
+	else
+		echo "DDNS Unknown: DNS response of $STORED does not match current address of $CURRENT"
+	fi
+	exit "$SEVERITY"
+fi

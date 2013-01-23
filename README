@@ -1,0 +1,21 @@
+Check plugin for dynamic DNS record update status
+Copyright:  2013, Tony Yarusso
+Author:     Tony Yarusso <tonyyarusso@gmail.com>
+License:    BSD <http://www.opensource.org/licenses/bsd-license.php>
+
+Options:
+    -h | --help
+           Display this help text
+    -v | --version
+           Display the version of this script
+    -n | --hostname
+           The FQDN with your DDNS provider to check against
+    -s | --server
+           The remote DNS server to use [Default=8.8.8.8 (Google)]
+    -u | --url
+           URL that returns the IP address of the requestor [Default=http://myip.dnsomatic.com/]
+    -w | --warning
+           Only generate a warning state on address mismatch
+    -c | --critical
+           Generate a critical state on address mismatch [Default]
+
