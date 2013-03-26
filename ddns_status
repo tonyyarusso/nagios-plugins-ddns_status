@@ -137,6 +137,12 @@ fi
 CURRENT=$(/usr/bin/wget -q -O - "$IPURL")
 STORED=$(/usr/bin/dig +short @"$REMOTEDNS" "$HOSTNAME")
 
+if [ "$STORED" = "" ]; then
+	# Sometimes this fails the first time, and then is fine a moment later
+	sleep 30
+	STORED=$(/usr/bin/dig +short @"$REMOTEDNS" "$HOSTNAME")
+fi
+
 if [ "$CURRENT" = "$STORED" ]; then
 	echo "DDNS OK:  Addresses match as $CURRENT"
 	exit 0
@@ -147,6 +153,7 @@ else
 		echo "DDNS Critical: DNS response of $STORED does not match current address of $CURRENT"
 	else
 		echo "DDNS Unknown: DNS response of $STORED does not match current address of $CURRENT"
+		SEVERITY=3
 	fi
 	exit "$SEVERITY"
 fi
